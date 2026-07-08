@@ -1,0 +1,4 @@
+id,status,customer.id,customer.name,payment.amount,payment.currency
+1,completed,1,Alice,100,USD
+2,pending,2,Bob,250,USD
+3,completed,1,Alice,150,USD

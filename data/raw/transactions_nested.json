@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "customer": { "id": 1, "name": "Alice" },
+    "payment": { "amount": 100, "currency": "USD" },
+    "status": "completed"
+  },
+  {
+    "id": 2,
+    "customer": { "id": 2, "name": "Bob" },
+    "payment": { "amount": 250, "currency": "USD" },
+    "status": "pending"
+  },
+  {
+    "id": 3,
+    "customer": { "id": 1, "name": "Alice" },
+    "payment": { "amount": 150, "currency": "USD" },
+    "status": "completed"
+  }
+]
