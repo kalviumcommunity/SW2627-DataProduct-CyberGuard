@@ -1,0 +1,124 @@
+{
+  "dataset": "data/raw/type_test.csv",
+  "schema_name": "enforcement_test",
+  "record_count": 4,
+  "column_count": 6,
+  "data_dictionary": {
+    "transaction_id": {
+      "type": "integer",
+      "format": null,
+      "business_context": "Unique transaction identifier for traceability and joins."
+    },
+    "customer_id": {
+      "type": "integer",
+      "format": null,
+      "business_context": "Customer key used to relate transactions to customer records."
+    },
+    "transaction_date": {
+      "type": "datetime",
+      "format": "%Y-%m-%d",
+      "business_context": "Transaction timestamp used for chronological analysis and time windows."
+    },
+    "amount": {
+      "type": "currency",
+      "format": "strip $ and commas, then convert to float",
+      "business_context": "Monetary value used for revenue, spend, and fraud-related calculations."
+    },
+    "is_active": {
+      "type": "boolean",
+      "format": "0/1, true/false, yes/no",
+      "business_context": "Operational flag indicating whether a customer or record is active."
+    },
+    "status": {
+      "type": "string",
+      "format": null,
+      "business_context": "Business state of the transaction such as completed or pending."
+    }
+  },
+  "before_dtypes": {
+    "transaction_id": "int64",
+    "customer_id": "int64",
+    "transaction_date": "str",
+    "amount": "str",
+    "is_active": "int64",
+    "status": "str"
+  },
+  "after_dtypes": {
+    "transaction_id": "Int64",
+    "customer_id": "Int64",
+    "transaction_date": "datetime64[us]",
+    "amount": "float64",
+    "is_active": "boolean",
+    "status": "string"
+  },
+  "dtype_comparison": [
+    {
+      "column": "transaction_id",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "customer_id",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "transaction_date",
+      "before_dtype": "str",
+      "after_dtype": "datetime64[us]"
+    },
+    {
+      "column": "amount",
+      "before_dtype": "str",
+      "after_dtype": "float64"
+    },
+    {
+      "column": "is_active",
+      "before_dtype": "int64",
+      "after_dtype": "boolean"
+    },
+    {
+      "column": "status",
+      "before_dtype": "str",
+      "after_dtype": "string"
+    }
+  ],
+  "conversion_log": [
+    {
+      "column": "transaction_id",
+      "target_type": "integer",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "customer_id",
+      "target_type": "integer",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "transaction_date",
+      "target_type": "datetime",
+      "before_dtype": "str",
+      "after_dtype": "datetime64[us]"
+    },
+    {
+      "column": "amount",
+      "target_type": "currency",
+      "before_dtype": "str",
+      "after_dtype": "float64"
+    },
+    {
+      "column": "is_active",
+      "target_type": "boolean",
+      "before_dtype": "int64",
+      "after_dtype": "boolean"
+    },
+    {
+      "column": "status",
+      "target_type": "string",
+      "before_dtype": "str",
+      "after_dtype": "string"
+    }
+  ]
+}

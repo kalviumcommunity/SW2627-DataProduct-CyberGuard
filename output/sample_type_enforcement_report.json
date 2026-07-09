@@ -1,0 +1,88 @@
+{
+  "dataset": "data/raw/sample.csv",
+  "schema_name": "sample",
+  "record_count": 3,
+  "column_count": 4,
+  "data_dictionary": {
+    "customer_id": {
+      "type": "integer",
+      "format": null,
+      "business_context": "Customer key used to relate transactions to customer records."
+    },
+    "customer_name": {
+      "type": "string",
+      "format": null,
+      "business_context": "Customer display name used in reports and grouping."
+    },
+    "transaction_amount": {
+      "type": "currency",
+      "format": "strip $ and commas, then convert to float",
+      "business_context": "Monetary value used for revenue-style calculations."
+    },
+    "transaction_date": {
+      "type": "datetime",
+      "format": "%Y-%m-%d",
+      "business_context": "Transaction timestamp used for chronological analysis and time windows."
+    }
+  },
+  "before_dtypes": {
+    "customer_id": "int64",
+    "customer_name": "str",
+    "transaction_amount": "float64",
+    "transaction_date": "str"
+  },
+  "after_dtypes": {
+    "customer_id": "Int64",
+    "customer_name": "string",
+    "transaction_amount": "float64",
+    "transaction_date": "datetime64[us]"
+  },
+  "dtype_comparison": [
+    {
+      "column": "customer_id",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "customer_name",
+      "before_dtype": "str",
+      "after_dtype": "string"
+    },
+    {
+      "column": "transaction_amount",
+      "before_dtype": "float64",
+      "after_dtype": "float64"
+    },
+    {
+      "column": "transaction_date",
+      "before_dtype": "str",
+      "after_dtype": "datetime64[us]"
+    }
+  ],
+  "conversion_log": [
+    {
+      "column": "customer_id",
+      "target_type": "integer",
+      "before_dtype": "int64",
+      "after_dtype": "Int64"
+    },
+    {
+      "column": "customer_name",
+      "target_type": "string",
+      "before_dtype": "str",
+      "after_dtype": "string"
+    },
+    {
+      "column": "transaction_amount",
+      "target_type": "currency",
+      "before_dtype": "float64",
+      "after_dtype": "float64"
+    },
+    {
+      "column": "transaction_date",
+      "target_type": "datetime",
+      "before_dtype": "str",
+      "after_dtype": "datetime64[us]"
+    }
+  ]
+}
