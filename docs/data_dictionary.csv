@@ -1,0 +1,9 @@
+column_name,data_type,description,business_meaning,example_value,related_kpi,notes
+customer_id,integer,Unique identifier for customer,Customer ID in CRM system,12456,Customer tracking,Primary key - never null
+trnx_amt,float,Transaction amount in USD,Revenue per transaction,150.99,Monthly revenue,Amount paid by customer in dollars
+purchase_date,datetime,Date transaction occurred,When sale was completed,2025-01-15,Sales velocity,UTC timezone - never null
+cust_segment,string,Customer classification,Business segment (B2B/B2C/SMB),B2B,Segment profitability,Updated monthly from CRM
+flag_churn,integer,Churn indicator (0/1),Whether customer left within 90 days,0,Churn rate prediction,Target variable for retention models
+segment,string,Ambiguous segment label,Customer market segment used for go-to-market strategy,SMB,Segment revenue,Use market_segment if schema is refactored
+customer_name,string,Customer display name,Human-readable customer reference,Alice Smith,Customer segmentation analysis,May contain capitalization differences from CRM
+email,string,Customer email address,Contact and identity field,alice@example.com,Customer communication,Validate format and deduplicate carefully

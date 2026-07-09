@@ -1,0 +1,5 @@
+transaction_id,customer_id,transaction_date,amount,is_active,status
+1,101,2025-01-15,$150.50,1,completed
+2,102,2025-01-16,$200.00,0,pending
+3,103,2025-02-01,$75.25,1,completed
+4,104,2025-02-10,$300.00,0,completed
