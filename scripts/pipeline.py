@@ -1,209 +1,163 @@
 from __future__ import annotations
 
 from pathlib import Path
-import numpy as np
+import json
+
 import pandas as pd
-from scipy import stats
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 RAW_DIR = BASE_DIR / "data" / "raw"
 OUTPUT_DIR = BASE_DIR / "output"
 
-REVENUE_COLUMN = "revenue"
-AGE_COLUMN = "age"
-Z_SCORE_THRESHOLD = 3.0
-IQR_MULTIPLIER = 1.5
+DATE_FORMAT = "%Y-%m-%d"
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+PHONE_PATTERN = r"^\d{10}$"
+EXPECTED_COLUMNS = {
+    "customer_id",
+    "age",
+    "price",
+    "birth_date",
+    "email",
+    "phone",
+    "start_date",
+    "end_date",
+    "campaign_start_date",
+    "campaign_end_date",
+}
+
 
 def build_sample_data() -> pd.DataFrame:
-    """Create a small customer revenue dataset with intentional outliers."""
     return pd.DataFrame(
         {
-            "customer_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "customer_name": [
-                "Alice",
-                "Bob",
-                "Carol",
-                "David",
-                "Ella",
-                "Frank",
-                "Grace",
-                "Henry",
-                "Ivy",
-                "Jack",
-            ],
-            "revenue": [120.0, 135.0, 128.0, 142.0, 150.0, 165.0, 175.0, 180.0, 500.0, 155.0],
-            "age": [24, 31, 29, 43, 52, 38, 28, 41, 150, 36],
+            "customer_id": [101, 102, None, 104, 105, 106],
+            "age": [29, 41, 152, 33, -2, 66],
+            "price": [120.50, -15.00, 250.00, 0.00, 89.99, 45.00],
+            "birth_date": ["1995-02-10", "2050-01-01", "1980-06-15", "1979-11-20", "1910-05-30", "2001-08-09"],
+            "email": ["alice@example.com", "bob.example.com", "carol@example.org", None, "ella@sample", "frank@example.com"],
+            "phone": ["1234567890", "12345", "0987654321", "1112223333", "phone12345", None],
+            "start_date": ["2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01", "2025-05-01", "2025-06-01"],
+            "end_date": ["2025-01-31", "2025-01-15", "2025-03-20", "2025-03-15", "2025-06-10", "2025-05-20"],
+            "campaign_start_date": ["2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01", "2025-05-01", "2025-06-01"],
+            "campaign_end_date": ["2025-01-31", "2025-01-15", "2025-02-20", "2025-03-15", "2025-04-30", "2025-05-20"],
         }
     )
 
-def load_data(input_path: Path | None = None) -> pd.DataFrame:
-    """Load a customer dataset or fall back to a built-in sample."""
-    if input_path and input_path.exists():
-        return pd.read_csv(input_path)
 
-    fallback_candidates = [
-        RAW_DIR / "customer_revenue.csv",
-        RAW_DIR / "revenue_customers.csv",
-        RAW_DIR / "sample.csv",
-    ]
-
-    for candidate in fallback_candidates:
-        if candidate.exists():
-            df = pd.read_csv(candidate)
-            if REVENUE_COLUMN in df.columns and AGE_COLUMN in df.columns:
-                return df
+def load_data() -> pd.DataFrame:
+    candidate = RAW_DIR / "sample.csv"
+    if candidate.exists():
+        df = pd.read_csv(candidate)
+        if EXPECTED_COLUMNS.issubset(df.columns):
+            return df
 
     return build_sample_data()
 
-def ensure_numeric(series: pd.Series) -> pd.Series:
-    """Convert a column to numeric values safely."""
-    return pd.to_numeric(series, errors="coerce")
 
-def detect_zscore_outliers(df: pd.DataFrame, column: str, threshold: float = Z_SCORE_THRESHOLD) -> pd.DataFrame:
-    """Add an absolute z-score column and a boolean outlier flag."""
+def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
-    values = result[column].astype(float)
-    zscores = stats.zscore(values, nan_policy="omit")
-    result[f"{column}_zscore"] = np.abs(zscores)
-    result[f"is_{column}_outlier_zscore"] = result[f"{column}_zscore"] > threshold
+
+    for column in ["birth_date", "start_date", "end_date", "campaign_start_date", "campaign_end_date"]:
+        if column in result.columns:
+            result[column] = pd.to_datetime(result[column], format=DATE_FORMAT, errors="coerce")
+
+    for column in ["age", "price", "customer_id"]:
+        if column in result.columns:
+            result[column] = pd.to_numeric(result[column], errors="coerce")
+
     return result
 
-def detect_iqr_outliers(df: pd.DataFrame, column: str, multiplier: float = IQR_MULTIPLIER) -> tuple[pd.DataFrame, float, float]:
-    """Add IQR-based outlier flags and return the lower and upper thresholds."""
+
+def rule_summary(rule_name: str, mask: pd.Series) -> dict:
+    failed_mask = ~mask.fillna(False)
+    return {
+        "rule": rule_name,
+        "passed_rows": int(mask.sum()),
+        "failed_rows": int(failed_mask.sum()),
+        "pass_rate": round(float(mask.mean()) if len(mask) else 0.0, 4),
+    }
+
+
+def validate_data(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     result = df.copy()
-    q1 = result[column].quantile(0.25)
-    q3 = result[column].quantile(0.75)
-    iqr = q3 - q1
-    lower = q1 - multiplier * iqr
-    upper = q3 + multiplier * iqr
-    result[f"is_{column}_outlier_iqr"] = (result[column] < lower) | (result[column] > upper)
-    return result, lower, upper
+    report: dict[str, object] = {}
 
-def cap_revenue_outliers(df: pd.DataFrame, lower: float, upper: float) -> pd.DataFrame:
-    """Cap revenue outliers at the IQR boundaries."""
-    result = df.copy()
-    result["revenue_capped"] = result[REVENUE_COLUMN].clip(lower=lower, upper=upper)
-    result["revenue_final"] = result["revenue_capped"]
-    return result
+    result["valid_age"] = result["age"].between(0, 150, inclusive="both")
+    result["valid_price"] = result["price"].ge(0)
+    result["valid_birth_date"] = result["birth_date"].between(pd.Timestamp("1920-01-01"), pd.Timestamp.now())
+    result["valid_customer_id"] = result["customer_id"].notna()
+    result["valid_email_format"] = result["email"].str.contains(EMAIL_PATTERN, na=False, regex=True)
+    result["valid_phone"] = result["phone"].astype("string").str.match(PHONE_PATTERN, na=False)
+    result["valid_date_order"] = result["end_date"].ge(result["start_date"])
+    result["valid_campaign_date_order"] = result["campaign_end_date"].ge(result["campaign_start_date"])
 
-def handle_age_outliers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, float, float]:
-    """Flag impossible ages and remove them from the cleaned dataset."""
-    result = df.copy()
-    q1 = result[AGE_COLUMN].quantile(0.25)
-    q3 = result[AGE_COLUMN].quantile(0.75)
-    iqr = q3 - q1
-    lower = q1 - IQR_MULTIPLIER * iqr
-    upper = q3 + IQR_MULTIPLIER * iqr
+    report["valid_age"] = rule_summary("valid_age", result["valid_age"])
+    report["valid_price"] = rule_summary("valid_price", result["valid_price"])
+    report["valid_birth_date"] = rule_summary("valid_birth_date", result["valid_birth_date"])
+    report["valid_customer_id"] = rule_summary("valid_customer_id", result["valid_customer_id"])
+    report["valid_email_format"] = rule_summary("valid_email_format", result["valid_email_format"])
+    report["valid_phone"] = rule_summary("valid_phone", result["valid_phone"])
+    report["valid_date_order"] = rule_summary("valid_date_order", result["valid_date_order"])
+    report["valid_campaign_date_order"] = rule_summary("valid_campaign_date_order", result["valid_campaign_date_order"])
 
-    result["age_zscore"] = np.abs(stats.zscore(result[AGE_COLUMN].astype(float), nan_policy="omit"))
-    result["is_age_outlier_iqr"] = (result[AGE_COLUMN] < lower) | (result[AGE_COLUMN] > upper)
-    result["is_age_impossible"] = (result[AGE_COLUMN] < 0) | (result[AGE_COLUMN] > 120)
-    result["is_age_outlier"] = result["is_age_outlier_iqr"] | result["is_age_impossible"]
-
-    cleaned = result[~result["is_age_impossible"]].copy()
-    return result, cleaned, lower, upper
-
-def build_cleaning_log(
-    revenue_lower: float,
-    revenue_upper: float,
-    revenue_outlier_count: int,
-    age_lower: float,
-    age_upper: float,
-    age_outlier_count: int,
-    age_removed_count: int,
-) -> pd.DataFrame:
-    """Create a cleaning log documenting all outlier decisions."""
-    log_entries = [
-        {
-            "column": REVENUE_COLUMN,
-            "method": "Z-score + IQR",
-            "action": "cap + flag",
-            "threshold_lower": revenue_lower,
-            "threshold_upper": revenue_upper,
-            "affected_rows": revenue_outlier_count,
-            "rows_removed": 0,
-            "rows_capped": revenue_outlier_count,
-            "date": pd.Timestamp.now(),
-            "decision_reason": "Revenue outliers distort averages, so values are capped at the IQR boundaries and flagged for downstream analysis.",
-        },
-        {
-            "column": AGE_COLUMN,
-            "method": "IQR + domain rule",
-            "action": "remove + flag",
-            "threshold_lower": age_lower,
-            "threshold_upper": age_upper,
-            "affected_rows": age_outlier_count,
-            "rows_removed": age_removed_count,
-            "rows_capped": 0,
-            "date": pd.Timestamp.now(),
-            "decision_reason": "Impossible ages above 120 are removed because they violate domain expectations and break downstream assumptions.",
-        },
+    validation_columns = [
+        "valid_age",
+        "valid_price",
+        "valid_birth_date",
+        "valid_customer_id",
+        "valid_email_format",
+        "valid_phone",
+        "valid_date_order",
+        "valid_campaign_date_order",
     ]
-    return pd.DataFrame(log_entries)
 
-def main() -> None:
+    result["passes_all_checks"] = result[validation_columns].all(axis=1)
+    report["validation_columns_used"] = validation_columns
+    report["records_total"] = int(len(result))
+    report["records_passed"] = int(result["passes_all_checks"].sum())
+    report["records_failed"] = int((~result["passes_all_checks"]).sum())
+    report["failed_record_ids"] = result.loc[~result["passes_all_checks"], "customer_id"].dropna().astype(int).tolist()
+
+    return result, report
+
+
+def write_validation_outputs(df: pd.DataFrame, report: dict) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    input_path = RAW_DIR / "customer_revenue.csv"
-    df = load_data(input_path if input_path.exists() else None)
+    failures = df[~df["passes_all_checks"]].copy()
+    failures.to_csv(OUTPUT_DIR / "validation_failures.csv", index=False)
 
-    if REVENUE_COLUMN not in df.columns or AGE_COLUMN not in df.columns:
-        df = build_sample_data()
+    report_payload = {
+        "summary": {
+            "records_total": report["records_total"],
+            "records_passed": report["records_passed"],
+            "records_failed": report["records_failed"],
+            "validation_columns_used": report["validation_columns_used"],
+        },
+        "rules": {
+            key: value
+            for key, value in report.items()
+            if key not in {"records_total", "records_passed", "records_failed", "validation_columns_used", "failed_record_ids"}
+        },
+        "failed_record_ids": report["failed_record_ids"],
+    }
 
-    df = df.copy()
-    df[REVENUE_COLUMN] = ensure_numeric(df[REVENUE_COLUMN])
-    df[AGE_COLUMN] = ensure_numeric(df[AGE_COLUMN])
+    with open(OUTPUT_DIR / "validation_report.json", "w", encoding="utf-8") as handle:
+        json.dump(report_payload, handle, indent=2, default=str)
 
-    df = detect_zscore_outliers(df, REVENUE_COLUMN, threshold=Z_SCORE_THRESHOLD)
-    df, revenue_lower, revenue_upper = detect_iqr_outliers(df, REVENUE_COLUMN, multiplier=IQR_MULTIPLIER)
-    revenue_outlier_count = int(df[f"is_{REVENUE_COLUMN}_outlier_iqr"].sum())
 
-    df = cap_revenue_outliers(df, revenue_lower, revenue_upper)
+def main() -> None:
+    df = normalize_dataframe(load_data())
+    validated_df, report = validate_data(df)
+    write_validation_outputs(validated_df, report)
 
-    print(f"Z-score outliers: {int(df[f'is_{REVENUE_COLUMN}_outlier_zscore'].sum())}")
-    print(f"IQR outliers: {revenue_outlier_count}")
-    print(f"Before revenue cap: min={df[REVENUE_COLUMN].min()}, max={df[REVENUE_COLUMN].max()}")
-    print(
-        f"After revenue cap: min={df['revenue_capped'].min()}, max={df['revenue_capped'].max()}"
-    )
+    print(f"Records: {report['records_total']}")
+    print(f"Passed: {report['records_passed']}")
+    print(f"Failed: {report['records_failed']}")
+    print(f"Failures saved to: {OUTPUT_DIR / 'validation_failures.csv'}")
+    print(f"Validation report saved to: {OUTPUT_DIR / 'validation_report.json'}")
+    print(f"Clean records ready for analysis: {int(validated_df['passes_all_checks'].sum())}")
 
-    age_full_df, cleaned_df, age_lower, age_upper = handle_age_outliers(df)
-    age_outlier_count = int(age_full_df["is_age_outlier"].sum())
-    age_removed_count = int((~age_full_df.index.isin(cleaned_df.index)).sum())
-
-    age_full_df["is_outlier"] = age_full_df[f"is_{REVENUE_COLUMN}_outlier_iqr"] | age_full_df[f"is_{REVENUE_COLUMN}_outlier_zscore"] | age_full_df["is_age_outlier"]
-    cleaned_df = age_full_df[~age_full_df["is_age_impossible"]].copy()
-
-    normal = age_full_df[~age_full_df["is_outlier"]]
-    anomalies = age_full_df[age_full_df["is_outlier"]]
-
-    cleaning_log = build_cleaning_log(
-        revenue_lower=revenue_lower,
-        revenue_upper=revenue_upper,
-        revenue_outlier_count=revenue_outlier_count,
-        age_lower=age_lower,
-        age_upper=age_upper,
-        age_outlier_count=age_outlier_count,
-        age_removed_count=age_removed_count,
-    )
-
-    print(f"Normal records: {len(normal)}")
-    print(f"Anomalies: {len(anomalies)}")
-    print(f"Age outliers: {age_outlier_count}")
-    print(f"Age removals: {age_removed_count}")
-
-    print("\nRevenue summary")
-    print(df[REVENUE_COLUMN].describe())
-
-    print("\nAge summary")
-    print(cleaned_df[AGE_COLUMN].describe())
-
-    cleaned_df.to_csv(OUTPUT_DIR / "cleaned_customer_revenue.csv", index=False)
-    age_full_df.to_csv(OUTPUT_DIR / "outlier_flagged_customer_revenue.csv", index=False)
-    cleaning_log.to_csv(OUTPUT_DIR / "cleaning_log.csv", index=False)
-
-    print(f"\nCleaning log saved to {OUTPUT_DIR / 'cleaning_log.csv'}")
-    print(f"Cleaned data saved to {OUTPUT_DIR / 'cleaned_customer_revenue.csv'}")
 
 if __name__ == "__main__":
     main()
