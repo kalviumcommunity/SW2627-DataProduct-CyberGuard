@@ -1,0 +1,73 @@
+{
+  "summary": {
+    "records_total": 6,
+    "records_passed": 1,
+    "records_failed": 5,
+    "validation_columns_used": [
+      "valid_age",
+      "valid_price",
+      "valid_birth_date",
+      "valid_customer_id",
+      "valid_email_format",
+      "valid_phone",
+      "valid_date_order",
+      "valid_campaign_date_order"
+    ]
+  },
+  "rules": {
+    "valid_age": {
+      "rule": "valid_age",
+      "passed_rows": 4,
+      "failed_rows": 2,
+      "pass_rate": 0.6667
+    },
+    "valid_price": {
+      "rule": "valid_price",
+      "passed_rows": 5,
+      "failed_rows": 1,
+      "pass_rate": 0.8333
+    },
+    "valid_birth_date": {
+      "rule": "valid_birth_date",
+      "passed_rows": 4,
+      "failed_rows": 2,
+      "pass_rate": 0.6667
+    },
+    "valid_customer_id": {
+      "rule": "valid_customer_id",
+      "passed_rows": 5,
+      "failed_rows": 1,
+      "pass_rate": 0.8333
+    },
+    "valid_email_format": {
+      "rule": "valid_email_format",
+      "passed_rows": 3,
+      "failed_rows": 3,
+      "pass_rate": 0.5
+    },
+    "valid_phone": {
+      "rule": "valid_phone",
+      "passed_rows": 3,
+      "failed_rows": 3,
+      "pass_rate": 0.5
+    },
+    "valid_date_order": {
+      "rule": "valid_date_order",
+      "passed_rows": 3,
+      "failed_rows": 3,
+      "pass_rate": 0.5
+    },
+    "valid_campaign_date_order": {
+      "rule": "valid_campaign_date_order",
+      "passed_rows": 1,
+      "failed_rows": 5,
+      "pass_rate": 0.1667
+    }
+  },
+  "failed_record_ids": [
+    102,
+    104,
+    105,
+    106
+  ]
+}
