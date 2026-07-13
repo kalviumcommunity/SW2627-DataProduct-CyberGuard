@@ -1,0 +1,3 @@
+column,method,action,threshold_lower,threshold_upper,affected_rows,rows_removed,rows_capped,date,decision_reason
+revenue,Z-score + IQR,cap + flag,83.125,226.125,1,0,1,2026-07-13 14:20:46.040780,"Revenue outliers distort averages, so values are capped at the IQR boundaries and flagged for downstream analysis."
+age,IQR + domain rule,remove + flag,10.0,62.0,1,1,0,2026-07-13 14:20:46.044578,Impossible ages above 120 are removed because they violate domain expectations and break downstream assumptions.
