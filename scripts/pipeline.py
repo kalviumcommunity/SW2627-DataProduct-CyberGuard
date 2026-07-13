@@ -1,222 +1,209 @@
-import os
-import sqlite3
-import pandas as pd
+from __future__ import annotations
+
+from pathlib import Path
 import numpy as np
-import logging
-from datetime import datetime
-from dotenv import load_dotenv
+import pandas as pd
+from scipy import stats
 
-# 1. Load Environment Variables & Configuration
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parents[1]
+RAW_DIR = BASE_DIR / "data" / "raw"
+OUTPUT_DIR = BASE_DIR / "output"
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "data/cyberguard.db")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-LOG_FILE = "logs/pipeline.log"
+REVENUE_COLUMN = "revenue"
+AGE_COLUMN = "age"
+Z_SCORE_THRESHOLD = 3.0
+IQR_MULTIPLIER = 1.5
 
-# Create logs and data directories if they don't exist
-os.makedirs("logs", exist_ok=True)
-os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-
-# 2. Setup Logging
-numeric_level = getattr(logging, LOG_LEVEL, logging.INFO)
-logging.basicConfig(
-    level=numeric_level,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
-
-# 3. Main Functions
-
-def ingest_data(filepath):
-    """
-    Ingest raw authentication logs from a CSV file.
-    
-    Args:
-        filepath (str): Path to the raw logs CSV file.
-        
-    Returns:
-        pd.DataFrame: Raw log DataFrame.
-        
-    Raises:
-        FileNotFoundError: If the input file does not exist.
-    """
-    logging.info(f"Starting data ingestion from {filepath}...")
-    try:
-        df = pd.read_csv(filepath)
-        logging.info(f"Successfully ingested {len(df)} rows from {filepath}")
-        return df
-    except FileNotFoundError as e:
-        logging.error(f"Ingestion failed: File not found at {filepath}")
-        raise e
-    except Exception as e:
-        logging.error(f"Error during ingestion: {str(e)}")
-        raise e
-
-def process_data(df):
-    """
-    Process raw logs to calculate security risk scores.
-    
-    Heuristics applied:
-    - Base risk = 10.
-    - If login status is 'Failed', add 30.
-    - If user is sensitive ('admin', 'root', 'db_backup') and status is 'Failed', add 20.
-    - If login country is suspicious ('RU', 'CN', 'KP', 'IR'), add 15.
-    - Detect Brute Force: If an IP has > 5 failed logins within the dataset, add 25 to all attempts from that IP.
-    - Detect Travel Anomaly: If a user has logged in from multiple countries, add 20 to all logins.
-    
-    Risk scores are capped between 0 and 100.
-    
-    Args:
-        df (pd.DataFrame): Raw log DataFrame with columns:
-            - timestamp (str/datetime)
-            - username (str)
-            - ip_address (str)
-            - country (str)
-            - status (str)
-            - device_type (str)
-            
-    Returns:
-        pd.DataFrame: Transformed DataFrame including a 'risk_score' column.
-    """
-    logging.info("Starting behavioral analysis and risk scoring...")
-    
-    if df.empty:
-        logging.warning("Empty DataFrame passed to process_data.")
-        df['risk_score'] = []
-        return df
-
-    # Create a copy to prevent SettingWithCopyWarning
-    processed_df = df.copy()
-    processed_df['timestamp'] = pd.to_datetime(processed_df['timestamp'])
-    
-    # Initialize base risk
-    processed_df['risk_score'] = 10.0
-    
-    # 1. Failed logins penalty
-    processed_df.loc[processed_df['status'] == 'Failed', 'risk_score'] += 30
-    
-    # 2. Sensitive account failures
-    sensitive_users = ['admin', 'root', 'db_backup']
-    sensitive_failure_mask = (processed_df['status'] == 'Failed') & (processed_df['username'].isin(sensitive_users))
-    processed_df.loc[sensitive_failure_mask, 'risk_score'] += 20
-    
-    # 3. Suspicious country access
-    suspicious_countries = ['RU', 'CN', 'KP', 'IR']
-    processed_df.loc[processed_df['country'].isin(suspicious_countries), 'risk_score'] += 15
-    
-    # 4. Brute force detection (aggregate fails per IP)
-    failed_counts_by_ip = processed_df[processed_df['status'] == 'Failed'].groupby('ip_address').size()
-    brute_force_ips = failed_counts_by_ip[failed_counts_by_ip > 5].index
-    processed_df.loc[processed_df['ip_address'].isin(brute_force_ips), 'risk_score'] += 25
-    
-    # 5. Impossible Travel Anomaly (User logging in from multiple countries)
-    user_country_counts = processed_df.groupby('username')['country'].nunique()
-    travel_anomaly_users = user_country_counts[user_country_counts > 1].index
-    processed_df.loc[processed_df['username'].isin(travel_anomaly_users), 'risk_score'] += 20
-    
-    # Cap risk score between 0 and 100
-    processed_df['risk_score'] = np.clip(processed_df['risk_score'], 0, 100)
-    
-    # Convert timestamp back to string for database compatibility
-    processed_df['timestamp'] = processed_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    logging.info(f"Processed {len(processed_df)} logs. High risk events (Score >= 70): {len(processed_df[processed_df['risk_score'] >= 70])}")
-    return processed_df
-
-def output_results(df, db_path):
-    """
-    Persist processed logs and aggregate risk profiles in a SQLite database.
-    
-    Args:
-        df (pd.DataFrame): Processed DataFrame with risk scores.
-        db_path (str): Filepath to the SQLite database.
-    """
-    logging.info(f"Persisting results to SQLite database at {db_path}...")
-    
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # 1. Create table for individual auth events
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS auth_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                username TEXT,
-                ip_address TEXT,
-                country TEXT,
-                status TEXT,
-                device_type TEXT,
-                risk_score REAL
-            )
-        """)
-        
-        # 2. Create table for aggregated user risk scores
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user_risk_profiles (
-                username TEXT PRIMARY KEY,
-                total_logins INTEGER,
-                failed_logins INTEGER,
-                max_risk_score REAL,
-                avg_risk_score REAL,
-                last_updated TEXT
-            )
-        """)
-        
-        conn.commit()
-        
-        # Insert events (replace table contents or append; we will replace for simple runs)
-        # In a real environment, we'd append or insert unique events.
-        df.to_sql("auth_events", conn, if_exists="replace", index=False)
-        logging.info(f"Inserted {len(df)} records into auth_events table.")
-        
-        # Calculate and update user risk profiles
-        profiles_df = df.groupby('username').agg(
-            total_logins=('status', 'count'),
-            failed_logins=('status', lambda x: int((x == 'Failed').sum())),
-            max_risk_score=('risk_score', 'max'),
-            avg_risk_score=('risk_score', 'mean')
-        ).reset_index()
-        
-        profiles_df['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        profiles_df.to_sql("user_risk_profiles", conn, if_exists="replace", index=False)
-        logging.info(f"Calculated and saved {len(profiles_df)} user risk profiles.")
-        
-        conn.commit()
-        print(f"SUCCESS: Pipeline run completed. Database updated at: {db_path}")
-        
-    except sqlite3.Error as e:
-        logging.error(f"Database error: {str(e)}")
-        raise e
-    finally:
-        if conn:
-            conn.close()
-            logging.info("Database connection closed.")
-
-# 4. Main Execution
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="CyberGuard SOC Logs Processing Pipeline")
-    parser.add_argument(
-        "--input", 
-        type=str, 
-        default="data/raw/auth_logs.csv", 
-        help="Path to raw logs CSV"
+def build_sample_data() -> pd.DataFrame:
+    """Create a small customer revenue dataset with intentional outliers."""
+    return pd.DataFrame(
+        {
+            "customer_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "customer_name": [
+                "Alice",
+                "Bob",
+                "Carol",
+                "David",
+                "Ella",
+                "Frank",
+                "Grace",
+                "Henry",
+                "Ivy",
+                "Jack",
+            ],
+            "revenue": [120.0, 135.0, 128.0, 142.0, 150.0, 165.0, 175.0, 180.0, 500.0, 155.0],
+            "age": [24, 31, 29, 43, 52, 38, 28, 41, 150, 36],
+        }
     )
-    args = parser.parse_args()
-    
-    try:
-        logging.info("=== Starting CyberGuard Pipeline Execution ===")
-        raw_data = ingest_data(args.input)
-        processed_data = process_data(raw_data)
-        output_results(processed_data, DATABASE_PATH)
-        logging.info("=== Pipeline Execution Finished Successfully ===")
-    except Exception as e:
-        logging.error(f"Fatal error in pipeline: {str(e)}")
-        print(f"ERROR: Pipeline failed. See {LOG_FILE} for details.")
-        exit(1)
+
+def load_data(input_path: Path | None = None) -> pd.DataFrame:
+    """Load a customer dataset or fall back to a built-in sample."""
+    if input_path and input_path.exists():
+        return pd.read_csv(input_path)
+
+    fallback_candidates = [
+        RAW_DIR / "customer_revenue.csv",
+        RAW_DIR / "revenue_customers.csv",
+        RAW_DIR / "sample.csv",
+    ]
+
+    for candidate in fallback_candidates:
+        if candidate.exists():
+            df = pd.read_csv(candidate)
+            if REVENUE_COLUMN in df.columns and AGE_COLUMN in df.columns:
+                return df
+
+    return build_sample_data()
+
+def ensure_numeric(series: pd.Series) -> pd.Series:
+    """Convert a column to numeric values safely."""
+    return pd.to_numeric(series, errors="coerce")
+
+def detect_zscore_outliers(df: pd.DataFrame, column: str, threshold: float = Z_SCORE_THRESHOLD) -> pd.DataFrame:
+    """Add an absolute z-score column and a boolean outlier flag."""
+    result = df.copy()
+    values = result[column].astype(float)
+    zscores = stats.zscore(values, nan_policy="omit")
+    result[f"{column}_zscore"] = np.abs(zscores)
+    result[f"is_{column}_outlier_zscore"] = result[f"{column}_zscore"] > threshold
+    return result
+
+def detect_iqr_outliers(df: pd.DataFrame, column: str, multiplier: float = IQR_MULTIPLIER) -> tuple[pd.DataFrame, float, float]:
+    """Add IQR-based outlier flags and return the lower and upper thresholds."""
+    result = df.copy()
+    q1 = result[column].quantile(0.25)
+    q3 = result[column].quantile(0.75)
+    iqr = q3 - q1
+    lower = q1 - multiplier * iqr
+    upper = q3 + multiplier * iqr
+    result[f"is_{column}_outlier_iqr"] = (result[column] < lower) | (result[column] > upper)
+    return result, lower, upper
+
+def cap_revenue_outliers(df: pd.DataFrame, lower: float, upper: float) -> pd.DataFrame:
+    """Cap revenue outliers at the IQR boundaries."""
+    result = df.copy()
+    result["revenue_capped"] = result[REVENUE_COLUMN].clip(lower=lower, upper=upper)
+    result["revenue_final"] = result["revenue_capped"]
+    return result
+
+def handle_age_outliers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, float, float]:
+    """Flag impossible ages and remove them from the cleaned dataset."""
+    result = df.copy()
+    q1 = result[AGE_COLUMN].quantile(0.25)
+    q3 = result[AGE_COLUMN].quantile(0.75)
+    iqr = q3 - q1
+    lower = q1 - IQR_MULTIPLIER * iqr
+    upper = q3 + IQR_MULTIPLIER * iqr
+
+    result["age_zscore"] = np.abs(stats.zscore(result[AGE_COLUMN].astype(float), nan_policy="omit"))
+    result["is_age_outlier_iqr"] = (result[AGE_COLUMN] < lower) | (result[AGE_COLUMN] > upper)
+    result["is_age_impossible"] = (result[AGE_COLUMN] < 0) | (result[AGE_COLUMN] > 120)
+    result["is_age_outlier"] = result["is_age_outlier_iqr"] | result["is_age_impossible"]
+
+    cleaned = result[~result["is_age_impossible"]].copy()
+    return result, cleaned, lower, upper
+
+def build_cleaning_log(
+    revenue_lower: float,
+    revenue_upper: float,
+    revenue_outlier_count: int,
+    age_lower: float,
+    age_upper: float,
+    age_outlier_count: int,
+    age_removed_count: int,
+) -> pd.DataFrame:
+    """Create a cleaning log documenting all outlier decisions."""
+    log_entries = [
+        {
+            "column": REVENUE_COLUMN,
+            "method": "Z-score + IQR",
+            "action": "cap + flag",
+            "threshold_lower": revenue_lower,
+            "threshold_upper": revenue_upper,
+            "affected_rows": revenue_outlier_count,
+            "rows_removed": 0,
+            "rows_capped": revenue_outlier_count,
+            "date": pd.Timestamp.now(),
+            "decision_reason": "Revenue outliers distort averages, so values are capped at the IQR boundaries and flagged for downstream analysis.",
+        },
+        {
+            "column": AGE_COLUMN,
+            "method": "IQR + domain rule",
+            "action": "remove + flag",
+            "threshold_lower": age_lower,
+            "threshold_upper": age_upper,
+            "affected_rows": age_outlier_count,
+            "rows_removed": age_removed_count,
+            "rows_capped": 0,
+            "date": pd.Timestamp.now(),
+            "decision_reason": "Impossible ages above 120 are removed because they violate domain expectations and break downstream assumptions.",
+        },
+    ]
+    return pd.DataFrame(log_entries)
+
+def main() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    input_path = RAW_DIR / "customer_revenue.csv"
+    df = load_data(input_path if input_path.exists() else None)
+
+    if REVENUE_COLUMN not in df.columns or AGE_COLUMN not in df.columns:
+        df = build_sample_data()
+
+    df = df.copy()
+    df[REVENUE_COLUMN] = ensure_numeric(df[REVENUE_COLUMN])
+    df[AGE_COLUMN] = ensure_numeric(df[AGE_COLUMN])
+
+    df = detect_zscore_outliers(df, REVENUE_COLUMN, threshold=Z_SCORE_THRESHOLD)
+    df, revenue_lower, revenue_upper = detect_iqr_outliers(df, REVENUE_COLUMN, multiplier=IQR_MULTIPLIER)
+    revenue_outlier_count = int(df[f"is_{REVENUE_COLUMN}_outlier_iqr"].sum())
+
+    df = cap_revenue_outliers(df, revenue_lower, revenue_upper)
+
+    print(f"Z-score outliers: {int(df[f'is_{REVENUE_COLUMN}_outlier_zscore'].sum())}")
+    print(f"IQR outliers: {revenue_outlier_count}")
+    print(f"Before revenue cap: min={df[REVENUE_COLUMN].min()}, max={df[REVENUE_COLUMN].max()}")
+    print(
+        f"After revenue cap: min={df['revenue_capped'].min()}, max={df['revenue_capped'].max()}"
+    )
+
+    age_full_df, cleaned_df, age_lower, age_upper = handle_age_outliers(df)
+    age_outlier_count = int(age_full_df["is_age_outlier"].sum())
+    age_removed_count = int((~age_full_df.index.isin(cleaned_df.index)).sum())
+
+    age_full_df["is_outlier"] = age_full_df[f"is_{REVENUE_COLUMN}_outlier_iqr"] | age_full_df[f"is_{REVENUE_COLUMN}_outlier_zscore"] | age_full_df["is_age_outlier"]
+    cleaned_df = age_full_df[~age_full_df["is_age_impossible"]].copy()
+
+    normal = age_full_df[~age_full_df["is_outlier"]]
+    anomalies = age_full_df[age_full_df["is_outlier"]]
+
+    cleaning_log = build_cleaning_log(
+        revenue_lower=revenue_lower,
+        revenue_upper=revenue_upper,
+        revenue_outlier_count=revenue_outlier_count,
+        age_lower=age_lower,
+        age_upper=age_upper,
+        age_outlier_count=age_outlier_count,
+        age_removed_count=age_removed_count,
+    )
+
+    print(f"Normal records: {len(normal)}")
+    print(f"Anomalies: {len(anomalies)}")
+    print(f"Age outliers: {age_outlier_count}")
+    print(f"Age removals: {age_removed_count}")
+
+    print("\nRevenue summary")
+    print(df[REVENUE_COLUMN].describe())
+
+    print("\nAge summary")
+    print(cleaned_df[AGE_COLUMN].describe())
+
+    cleaned_df.to_csv(OUTPUT_DIR / "cleaned_customer_revenue.csv", index=False)
+    age_full_df.to_csv(OUTPUT_DIR / "outlier_flagged_customer_revenue.csv", index=False)
+    cleaning_log.to_csv(OUTPUT_DIR / "cleaning_log.csv", index=False)
+
+    print(f"\nCleaning log saved to {OUTPUT_DIR / 'cleaning_log.csv'}")
+    print(f"Cleaned data saved to {OUTPUT_DIR / 'cleaned_customer_revenue.csv'}")
+
+if __name__ == "__main__":
+    main()
