@@ -44,7 +44,6 @@
       "top_values": {
         "Alice": 2,
         "Bob": 1,
-        "NaN": 1,
         "Diana": 1
       },
       "null_count": 1
@@ -52,9 +51,8 @@
     "email": {
       "unique_count": 2,
       "top_values": {
-        "alice@example.com": 2,
-        "NaN": 2,
-        "charlie@example.com": 1
+        "a***@example.com": 2,
+        "c***@example.com": 1
       },
       "null_count": 2
     },
