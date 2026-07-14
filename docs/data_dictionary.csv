@@ -7,3 +7,10 @@ flag_churn,integer,Churn indicator (0/1),Whether customer left within 90 days,0,
 segment,string,Ambiguous segment label,Customer market segment used for go-to-market strategy,SMB,Segment revenue,Use market_segment if schema is refactored
 customer_name,string,Customer display name,Human-readable customer reference,Alice Smith,Customer segmentation analysis,May contain capitalization differences from CRM
 email,string,Customer email address,Contact and identity field,alice@example.com,Customer communication,Validate format and deduplicate carefully
+timestamp,datetime,Timestamp of login attempt,Authentication timestamp in UTC,2026-07-01 13:39:45,Login velocity,Primary key component - never null
+username,string,Identifier of authenticating user,Security user identity,user_16,User login frequency,Used for tracking individual behavior
+ip_address,string,IPv4 address of login origin,Connection IP source,21.73.167.18,Brute force count,Used for geolocation and threat analysis
+country,string,Two-letter location code,Geographic origin country,AU,Geographic risk,Derived from IP address geolocation
+status,string,Login outcome,Authentication status,Success,Failed login rate,Valid values are Success or Failed
+device_type,string,Operating system/device descriptor,Connection device type,Mobile-Android,Device profile anomaly,Identifies client browser/OS structure
+risk_score,float,Calculated security risk score,Behavioral risk score (0-100),10.0,High-risk event rate,Computed using threat heuristics
