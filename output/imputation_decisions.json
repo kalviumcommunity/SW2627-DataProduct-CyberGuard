@@ -16,7 +16,7 @@
     "risk_assessment": "Low - only affects small percentage of data"
   },
   "name": {
-    "column_type": "str",
+    "column_type": "object",
     "null_count_before": 1,
     "strategy": "mode_imputation",
     "business_reasoning": "Column-specific handling applied based on available data and workflow rules.",
