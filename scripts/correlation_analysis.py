@@ -24,8 +24,6 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 RAW_DIR = BASE_DIR / "data" / "raw"
 OUTPUT_DIR = BASE_DIR / "output"
 
-TARGET_COLUMN = "churn"
-
 
 def build_sample_churn_data(n: int = 300, seed: int = 42) -> pd.DataFrame:
     """Create a realistic churn sample when no churn dataset is present in the repo."""
@@ -83,17 +81,21 @@ def ensure_numeric_target(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
     if result[target_col].dtype == bool:
         result[target_col] = result[target_col].astype(int)
     elif not pd.api.types.is_numeric_dtype(result[target_col]):
-        mapping = {
-            "yes": 1,
-            "true": 1,
-            "churned": 1,
-            "1": 1,
-            "no": 0,
-            "false": 0,
-            "active": 0,
-            "0": 0,
-        }
-        result[target_col] = result[target_col].astype(str).str.strip().str.lower().map(mapping)
+        numeric_target = pd.to_numeric(result[target_col], errors="coerce")
+        if numeric_target.notna().any():
+            result[target_col] = numeric_target
+        else:
+            mapping = {
+                "yes": 1,
+                "true": 1,
+                "churned": 1,
+                "1": 1,
+                "no": 0,
+                "false": 0,
+                "active": 0,
+                "0": 0,
+            }
+            result[target_col] = result[target_col].astype(str).str.strip().str.lower().map(mapping)
 
     numeric_df = result.select_dtypes(include=["number"]).copy()
     numeric_df = numeric_df.dropna(axis=0)
@@ -107,15 +109,15 @@ def ensure_numeric_target(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
     return numeric_df
 
 
-def compute_correlation_matrices(df_num: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def compute_correlation_matrices(df_num: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Task 1: Pearson and Spearman correlation with target comparison table."""
     pearson_corr = df_num.corr(method="pearson")
     spearman_corr = df_num.corr(method="spearman")
 
     comparison = pd.DataFrame(
         {
-            "pearson": pearson_corr[TARGET_COLUMN],
-            "spearman": spearman_corr[TARGET_COLUMN],
+            "pearson": pearson_corr[target_col],
+            "spearman": spearman_corr[target_col],
         }
     )
     comparison["abs_diff"] = (comparison["pearson"] - comparison["spearman"]).abs()
@@ -140,6 +142,7 @@ def strong_correlation_pairs(corr: pd.DataFrame, threshold: float = 0.7, top_n: 
     upper = corr.where(upper_mask)
     strong = upper.stack().sort_values(key=lambda s: s.abs(), ascending=False)
     strong = strong[strong.abs() > threshold].head(top_n)
+    strong.index.names = ["feature_1", "feature_2"]
     return strong
 
 
@@ -150,14 +153,15 @@ def build_business_analysis(
 ) -> dict[str, dict[str, object]]:
     """Task 4: Convert strong correlations into actionable but non-causal interpretations."""
     analysis: dict[str, dict[str, object]] = {}
+    relation_key = f"connection_to_{target_col}"
 
     for (left, right), corr_value in strong_pairs.items():
         pair_name = f"{left} <-> {right}"
-        relation_to_churn = []
+        relation_to_target = []
 
         for col in (left, right):
             if col != target_col and target_col in pearson_corr.columns:
-                relation_to_churn.append(f"{col}: r={pearson_corr.loc[col, target_col]:.2f} with {target_col}")
+                relation_to_target.append(f"{col}: r={pearson_corr.loc[col, target_col]:.2f} with {target_col}")
 
         analysis[pair_name] = {
             "correlation": round(float(corr_value), 3),
@@ -167,19 +171,19 @@ def build_business_analysis(
                 "Unobserved confounder may drive both",
             ],
             "data_indicates": "Strong association, not proof of causation. Validate with temporal or experimental evidence.",
-            "connection_to_churn": relation_to_churn,
+            relation_key: relation_to_target,
             "action": "Use as an early warning signal and prioritize root-cause analysis rather than treating the proxy metric directly.",
         }
 
-    support_key = "support_tickets <-> churn"
-    if {"support_tickets", "churn"}.issubset(set(pearson_corr.columns)):
-        st_corr = float(pearson_corr.loc["support_tickets", "churn"])
+    support_key = f"support_tickets <-> {target_col}"
+    if {"support_tickets", target_col}.issubset(set(pearson_corr.columns)):
+        st_corr = float(pearson_corr.loc["support_tickets", target_col])
         analysis[support_key] = {
             "correlation": round(st_corr, 3),
             "possible_directions": [
-                "support_tickets -> churn (friction drives exits)",
-                "churn intent -> support_tickets (frustrated users seek help before leaving)",
-                "customer_pain -> both (confounding cause)",
+                f"support_tickets -> {target_col} (friction drives exits)",
+                f"{target_col} intent -> support_tickets (frustrated users seek help before leaving)",
+                f"customer_pain -> both (confounding cause for support_tickets and {target_col})",
             ],
             "data_indicates": "Tickets are likely a symptom of underlying pain, not necessarily the root cause.",
             "action": "Reduce recurring customer pain points and improve first-contact resolution quality.",
@@ -188,9 +192,14 @@ def build_business_analysis(
     return analysis
 
 
-def feature_selection_by_correlation(df_num: pd.DataFrame, corr: pd.DataFrame, threshold: float = 0.9) -> tuple[pd.DataFrame, list[str]]:
+def feature_selection_by_correlation(
+    df_num: pd.DataFrame,
+    corr: pd.DataFrame,
+    target_col: str,
+    threshold: float = 0.9,
+) -> tuple[pd.DataFrame, list[str]]:
     """Task 5: Drop redundant features from highly correlated pairs and keep interpretable set."""
-    selected_cols = [c for c in df_num.columns if c != TARGET_COLUMN]
+    selected_cols = [c for c in df_num.columns if c != target_col]
     dropped: list[str] = []
 
     for i, col_i in enumerate(selected_cols.copy()):
@@ -212,7 +221,7 @@ def feature_selection_by_correlation(df_num: pd.DataFrame, corr: pd.DataFrame, t
 
                 dropped.append(drop)
 
-    final_cols = [c for c in selected_cols if c not in dropped] + [TARGET_COLUMN]
+    final_cols = [c for c in selected_cols if c not in dropped] + [target_col]
     return df_num[final_cols].copy(), dropped
 
 
@@ -220,11 +229,9 @@ def run_analysis(input_path: Path | None, target_col: str, output_dir: Path) -> 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     df, source = load_data(input_path)
-    global TARGET_COLUMN
-    TARGET_COLUMN = target_col
     df_num = ensure_numeric_target(df, target_col)
 
-    pearson_corr, spearman_corr, comparison = compute_correlation_matrices(df_num)
+    pearson_corr, spearman_corr, comparison = compute_correlation_matrices(df_num, target_col)
     print("Task 1 - Pearson vs Spearman comparison against target:")
     print(comparison)
 
@@ -240,7 +247,7 @@ def run_analysis(input_path: Path | None, target_col: str, output_dir: Path) -> 
     print("\nTask 4 - Business interpretation:")
     print(json.dumps(analysis, indent=2))
 
-    df_features, dropped = feature_selection_by_correlation(df_num, pearson_corr, threshold=0.9)
+    df_features, dropped = feature_selection_by_correlation(df_num, pearson_corr, target_col, threshold=0.9)
     print("\nTask 5 - Feature selection by redundancy:")
     print(f"Dropped features: {dropped if dropped else 'None'}")
     print(df_features.corr())
