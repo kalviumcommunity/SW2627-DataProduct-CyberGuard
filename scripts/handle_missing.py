@@ -103,7 +103,7 @@ def drop_rows_with_nulls(df, critical_cols):
     return df_imputed
 
 
-def document_imputation_decisions(df_original, df_imputed):
+def document_imputation_decisions(df_original, df_imputed, output_path='output/imputation_decisions.json'):
     """Document all imputation decisions with business justification."""
 
     decisions = {}
@@ -159,8 +159,8 @@ def document_imputation_decisions(df_original, df_imputed):
                 'risk_assessment': 'Varies by column'
             }
 
-    os.makedirs('output', exist_ok=True)
-    with open('output/imputation_decisions.json', 'w', encoding='utf-8') as f:
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(decisions, f, indent=2, default=str)
 
     return decisions
@@ -192,8 +192,33 @@ def validate_imputation(df_original, df_imputed):
 
 
 def main():
-    input_path = 'data/raw/missing_data.csv'
-    output_path = 'data/processed/cleaned_data.csv'
+    import argparse
+    parser = argparse.ArgumentParser(description="CyberGuard Missing Value Detection and Imputation Utility")
+    parser.add_argument(
+        "--input",
+        default="data/raw/missing_data.csv",
+        help="Path to the raw CSV containing missing values"
+    )
+    parser.add_argument(
+        "--output",
+        default="data/processed/cleaned_data.csv",
+        help="Path to save the cleaned, imputed dataset"
+    )
+    parser.add_argument(
+        "--numerical-strategy",
+        default="median",
+        choices=["mean", "median"],
+        help="Imputation strategy for numerical columns (mean or median)"
+    )
+    parser.add_argument(
+        "--decisions",
+        default="output/imputation_decisions.json",
+        help="Path to save the JSON imputation decisions report"
+    )
+    args = parser.parse_args()
+
+    input_path = args.input
+    output_path = args.output
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
@@ -205,12 +230,12 @@ def main():
 
     print("\nStep 2: Applying imputation strategies...")
     df_imputed = drop_rows_with_nulls(df_original, ['customer_id', 'email'])
-    df_imputed = impute_mean_median(df_imputed, ['amount', 'quantity'], strategy='median')
+    df_imputed = impute_mean_median(df_imputed, ['amount', 'quantity'], strategy=args.numerical_strategy)
     df_imputed = impute_mode(df_imputed, ['name', 'category', 'region'])
     df_imputed = impute_forward_fill(df_imputed, ['last_updated', 'status_date'])
 
     print("\nStep 3: Documenting imputation decisions...")
-    document_imputation_decisions(df_original, df_imputed)
+    document_imputation_decisions(df_original, df_imputed, output_path=args.decisions)
 
     print("\nStep 4: Validating imputation...")
     validate_imputation(df_original, df_imputed)
