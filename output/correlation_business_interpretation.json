@@ -1,0 +1,67 @@
+{
+  "engagement <-> transactions_per_month": {
+    "correlation": 0.922,
+    "possible_directions": [
+      "engagement -> transactions_per_month",
+      "transactions_per_month -> engagement",
+      "Unobserved confounder may drive both"
+    ],
+    "data_indicates": "Strong association, not proof of causation. Validate with temporal or experimental evidence.",
+    "connection_to_churn": [
+      "engagement: r=-0.71 with churn",
+      "transactions_per_month: r=-0.65 with churn"
+    ],
+    "action": "Use as an early warning signal and prioritize root-cause analysis rather than treating the proxy metric directly."
+  },
+  "engagement <-> support_tickets": {
+    "correlation": -0.787,
+    "possible_directions": [
+      "engagement -> support_tickets",
+      "support_tickets -> engagement",
+      "Unobserved confounder may drive both"
+    ],
+    "data_indicates": "Strong association, not proof of causation. Validate with temporal or experimental evidence.",
+    "connection_to_churn": [
+      "engagement: r=-0.71 with churn",
+      "support_tickets: r=0.69 with churn"
+    ],
+    "action": "Use as an early warning signal and prioritize root-cause analysis rather than treating the proxy metric directly."
+  },
+  "transactions_per_month <-> support_tickets": {
+    "correlation": -0.732,
+    "possible_directions": [
+      "transactions_per_month -> support_tickets",
+      "support_tickets -> transactions_per_month",
+      "Unobserved confounder may drive both"
+    ],
+    "data_indicates": "Strong association, not proof of causation. Validate with temporal or experimental evidence.",
+    "connection_to_churn": [
+      "transactions_per_month: r=-0.65 with churn",
+      "support_tickets: r=0.69 with churn"
+    ],
+    "action": "Use as an early warning signal and prioritize root-cause analysis rather than treating the proxy metric directly."
+  },
+  "engagement <-> churn": {
+    "correlation": -0.713,
+    "possible_directions": [
+      "engagement -> churn",
+      "churn -> engagement",
+      "Unobserved confounder may drive both"
+    ],
+    "data_indicates": "Strong association, not proof of causation. Validate with temporal or experimental evidence.",
+    "connection_to_churn": [
+      "engagement: r=-0.71 with churn"
+    ],
+    "action": "Use as an early warning signal and prioritize root-cause analysis rather than treating the proxy metric directly."
+  },
+  "support_tickets <-> churn": {
+    "correlation": 0.685,
+    "possible_directions": [
+      "support_tickets -> churn (friction drives exits)",
+      "churn intent -> support_tickets (frustrated users seek help before leaving)",
+      "customer_pain -> both (confounding cause)"
+    ],
+    "data_indicates": "Tickets are likely a symptom of underlying pain, not necessarily the root cause.",
+    "action": "Reduce recurring customer pain points and improve first-contact resolution quality."
+  }
+}

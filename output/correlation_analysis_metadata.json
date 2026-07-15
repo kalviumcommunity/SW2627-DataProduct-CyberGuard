@@ -1,0 +1,16 @@
+{
+  "data_source": "generated_sample",
+  "rows_analyzed": 300,
+  "numeric_columns": [
+    "engagement",
+    "transactions_per_month",
+    "support_tickets",
+    "tenure_months",
+    "monthly_spend",
+    "churn"
+  ],
+  "target_column": "churn",
+  "dropped_redundant_features": [
+    "engagement"
+  ]
+}
