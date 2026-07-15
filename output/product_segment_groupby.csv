@@ -1,0 +1,10 @@
+customer_type,product,total_revenue,customer_count
+Enterprise,Advanced,134938.1,12
+Enterprise,Core,314896.66,22
+Enterprise,Security,250165.23,16
+SMB,Advanced,63118.58,122
+SMB,Core,90053.5,182
+SMB,Security,46827.93,96
+Startup,Advanced,29577.46,167
+Startup,Core,51348.01,274
+Startup,Security,19074.56,109

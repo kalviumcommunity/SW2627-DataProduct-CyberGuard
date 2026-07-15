@@ -59,7 +59,7 @@
     "possible_directions": [
       "support_tickets -> churn (friction drives exits)",
       "churn intent -> support_tickets (frustrated users seek help before leaving)",
-      "customer_pain -> both (confounding cause)"
+      "customer_pain -> both (confounding cause for support_tickets and churn)"
     ],
     "data_indicates": "Tickets are likely a symptom of underlying pain, not necessarily the root cause.",
     "action": "Reduce recurring customer pain points and improve first-contact resolution quality."

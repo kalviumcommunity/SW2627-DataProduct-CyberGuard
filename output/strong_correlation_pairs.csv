@@ -1,4 +1,4 @@
-,,pearson_corr
+feature_1,feature_2,pearson_corr
 engagement,transactions_per_month,0.9224368180047267
 engagement,support_tickets,-0.786643427479744
 transactions_per_month,support_tickets,-0.7318692686981305
