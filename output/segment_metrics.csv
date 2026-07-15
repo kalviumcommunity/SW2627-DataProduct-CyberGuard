@@ -1,0 +1,4 @@
+customer_type,churn_rate,total_revenue,customer_count,avg_support_tickets,churn_rank,revenue_contribution
+Enterprise,0.0,699999.99,50,0.88,1.0,69.9999969000001
+SMB,0.12,200000.01,400,2.6725,3.0,20.000000399999987
+Startup,0.08,100000.03,550,1.8,2.0,10.000002699999918
