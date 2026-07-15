@@ -1,9 +1,31 @@
 import argparse
+import hashlib
 import json
 import os
 
 import numpy as np
 import pandas as pd
+
+
+def sanitize_for_json(obj):
+    """
+    Recursively sanitize objects to be JSON-serializable.
+    Converts NaN, Inf, -Inf, and NaT/NA to None.
+    Converts numpy and pandas scalars to Python native types.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(x) for x in obj]
+    elif isinstance(obj, (float, np.floating)):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, (int, np.integer)):
+        return int(obj)
+    elif pd.isna(obj):  # Catches np.nan, None, pd.NA, pd.NaT
+        return None
+    return obj
 
 
 def profile_nulls_and_duplicates(df):
@@ -55,19 +77,39 @@ def profile_numerical_columns(df):
     return pd.DataFrame(stats).T
 
 
-def profile_categorical_columns(df, top_n=5):
+def profile_categorical_columns(df, top_n=5, redact_columns=None):
     """
     Summarise categorical columns with value distributions.
 
     Returns: Dictionary with unique counts and top values
     """
+    if redact_columns is None:
+        redact_columns = []
+
     categorical_cols = df.select_dtypes(include=["object", "category", "string"]).columns
 
     profile = {}
     for col in categorical_cols:
+        # Exclude nulls from top values to align with unique_count (nunique dropna=True by default)
+        top_vals_series = df[col].value_counts(dropna=True).head(top_n)
+        
+        top_values = {}
+        for val, count in top_vals_series.items():
+            val_str = str(val)
+            if col in redact_columns:
+                # Mask email format specifically, hash others
+                if "@" in val_str:
+                    parts = val_str.split("@")
+                    masked = parts[0][0] + "***@" + parts[1] if len(parts[0]) > 0 else "***"
+                else:
+                    masked = hashlib.sha256(val_str.encode("utf-8")).hexdigest()[:8]
+                top_values[masked] = int(count)
+            else:
+                top_values[val_str] = int(count)
+
         profile[col] = {
             "unique_count": int(df[col].nunique()),
-            "top_values": df[col].value_counts(dropna=False).head(top_n).to_dict(),
+            "top_values": top_values,
             "null_count": int(df[col].isnull().sum()),
         }
 
@@ -129,13 +171,15 @@ def identify_quality_issues(df, null_threshold=30, duplicate_threshold=5):
     return issues
 
 
-def generate_profile_report(df, filepath):
+def generate_profile_report(df, filepath, output_path="output/profile_report.json", redact_columns=None):
     """
     Generate complete data quality report and save to JSON.
 
     Returns: Complete profile report dictionary
     """
-    os.makedirs("output", exist_ok=True)
+    dir_name = os.path.dirname(output_path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
 
     numerical_profile = profile_numerical_columns(df)
     report = {
@@ -144,25 +188,28 @@ def generate_profile_report(df, filepath):
         "column_count": len(df.columns),
         "nulls_and_duplicates": profile_nulls_and_duplicates(df),
         "numerical_stats": numerical_profile.to_dict(orient="index"),
-        "categorical_stats": profile_categorical_columns(df),
+        "categorical_stats": profile_categorical_columns(df, redact_columns=redact_columns),
         "quality_issues": identify_quality_issues(df),
     }
 
-    with open("output/profile_report.json", "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2, default=str)
+    # Sanitize NaN/Inf/numpy types for strict JSON compliance
+    sanitized_report = sanitize_for_json(report)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(sanitized_report, f, indent=2, allow_nan=False)
 
     print(f"\n{'='*60}")
     print(f"DATA QUALITY PROFILE: {filepath}")
     print(f"{'='*60}")
-    print(f"Records: {report['record_count']}")
-    print(f"Columns: {report['column_count']}")
-    print(f"\nQuality Issues Found: {len(report['quality_issues'])}")
-    for issue in report["quality_issues"]:
+    print(f"Records: {sanitized_report['record_count']}")
+    print(f"Columns: {sanitized_report['column_count']}")
+    print(f"\nQuality Issues Found: {len(sanitized_report['quality_issues'])}")
+    for issue in sanitized_report["quality_issues"]:
         print(f"  [{issue['severity']}] {issue['type']} in {issue['column']}")
         print(f"    Value: {issue['value']} -> {issue['recommendation']}")
     print(f"{'='*60}\n")
 
-    return report
+    return sanitized_report
 
 
 def load_dataset(filepath):
@@ -179,10 +226,22 @@ def main():
         default="data/raw/quality_test.csv",
         help="Path to the CSV file to profile",
     )
+    parser.add_argument(
+        "--output",
+        default="output/profile_report.json",
+        help="Path to save the JSON profile report",
+    )
+    parser.add_argument(
+        "--redact-columns",
+        default="email",
+        help="Comma-separated list of categorical columns to redact in the report",
+    )
     args = parser.parse_args()
 
+    redact_cols = [c.strip() for c in args.redact_columns.split(",")] if args.redact_columns else []
+
     df = load_dataset(args.input)
-    generate_profile_report(df, args.input)
+    generate_profile_report(df, args.input, args.output, redact_columns=redact_cols)
 
 
 if __name__ == "__main__":
