@@ -81,21 +81,19 @@ def ensure_numeric_target(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
     if result[target_col].dtype == bool:
         result[target_col] = result[target_col].astype(int)
     elif not pd.api.types.is_numeric_dtype(result[target_col]):
+        mapping = {
+            "yes": 1,
+            "true": 1,
+            "churned": 1,
+            "1": 1,
+            "no": 0,
+            "false": 0,
+            "active": 0,
+            "0": 0,
+        }
+        mapped = result[target_col].astype(str).str.strip().str.lower().map(mapping)
         numeric_target = pd.to_numeric(result[target_col], errors="coerce")
-        if numeric_target.notna().any():
-            result[target_col] = numeric_target
-        else:
-            mapping = {
-                "yes": 1,
-                "true": 1,
-                "churned": 1,
-                "1": 1,
-                "no": 0,
-                "false": 0,
-                "active": 0,
-                "0": 0,
-            }
-            result[target_col] = result[target_col].astype(str).str.strip().str.lower().map(mapping)
+        result[target_col] = mapped.fillna(numeric_target)
 
     numeric_df = result.select_dtypes(include=["number"]).copy()
     numeric_df = numeric_df.dropna(axis=0)
