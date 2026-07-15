@@ -1,0 +1,14 @@
+Revenue Distribution Analysis
+-----------------------------
+Skewness: 1.43 -> Highly right-skewed
+Mean: $230
+Median: $200
+Interpretation: Most customers are small; a few large accounts pull up average revenue.
+
+Kurtosis: 5.09 -> Fat tails (outliers likely)
+Max: $500
+Top 1% threshold: $490
+Top 1% revenue share: 43.5%
+
+Hidden Segment Signal: Large jump from 75th to 90th percentile suggests a high-value sub-segment.
+Business Action: Segment lifecycle, pricing, and retention strategy separately for long-tail and enterprise-like customers.
