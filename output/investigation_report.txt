@@ -1,0 +1,130 @@
+═══════════════════════════════════════════════════════════════════
+ROOT CAUSE INVESTIGATION REPORT
+
+OBSERVATION:
+- Daily success rate dropped on 2026-07-05 to 69.6%
+- Anomaly threshold: 80.4%
+- Timeline: 15:00-16:00 UTC
+- Problem window rows: 1
+- Affected user: user_9
+- Affected country: IN
+- Affected device: Laptop-macOS
+
+ANALYSIS:
+- The raw auth log does not include customer_type, payment_method, region, or error_message columns. Segment and correlation analysis therefore uses the available auth dimensions: username, country, and device_type.
+- Hourly success rates for the problem day:
+timestamp
+0     0.833333
+1     0.888889
+2     0.714286
+3     0.290909
+4     0.900000
+5     1.000000
+6     0.714286
+7     1.000000
+8     1.000000
+9     0.666667
+10    1.000000
+11    0.666667
+12    1.000000
+13    0.666667
+14    1.000000
+15    0.000000
+16    1.000000
+17    1.000000
+19    1.000000
+20    1.000000
+21    1.000000
+22    1.000000
+23    1.000000
+
+- Surrounding hour comparison:
+window  hour success_rate
+before    14       100.0%
+during    15         0.0%
+ after    16       100.0%
+
+- Segment breakdown in the problem hour:
+By Username:
+          mean  count
+username             
+user_9     0.0      1
+By Country:
+         mean  count
+country             
+IN        0.0      1
+By Device Type:
+              mean  count
+device_type              
+Laptop-macOS   0.0      1
+
+- Correlation patterns:
+Username:
+is_problem_period    0  1  All
+username                      
+admin               82  0   82
+db_backup           43  0   43
+root                54  0   54
+user_1              30  0   30
+user_10             34  0   34
+user_11             41  0   41
+user_12             34  0   34
+user_13             48  0   48
+user_14             34  0   34
+user_15             37  0   37
+user_16             41  0   41
+user_17             46  0   46
+user_18             30  0   30
+user_19             36  0   36
+user_2              37  0   37
+user_20             38  0   38
+user_3              38  0   38
+user_4              43  0   43
+user_5              44  0   44
+user_6              33  0   33
+user_7              40  0   40
+user_8              39  0   39
+user_9              41  1   42
+All                943  1  944
+Country:
+is_problem_period    0  1  All
+country                       
+AU                 199  0  199
+CN                   1  0    1
+DE                  68  0   68
+FR                 110  0  110
+GB                  78  0   78
+IN                  79  1   80
+JP                 171  0  171
+KP                   2  0    2
+RU                  40  0   40
+US                 195  0  195
+All                943  1  944
+Device_Type:
+is_problem_period      0  1  All
+device_type                     
+Laptop-macOS         172  1  173
+Mobile-Android       200  0  200
+Mobile-iOS           181  0  181
+Server-Linux         185  0  185
+Workstation-Windows  205  0  205
+All                  943  1  944
+
+EVIDENCE:
+- No error_message column is present in the raw auth log, so error-log correlation cannot be evaluated directly from this workspace data.
+- The detected problem hour is lower than the adjacent hours, which recover to normal success rates.
+
+HYPOTHESIS (Confidence: MEDIUM-HIGH):
+The anomaly is a localized auth failure affecting a single user/session slice rather than a platform-wide outage. The raw data shows one trough hour on 2026-07-05 with a 0% success rate in that hour, while adjacent hours recover to normal levels.
+
+ROOT CAUSE:
+Likely localized authentication failure or targeted login issue rather than a systemic platform outage.
+
+RECOMMENDED ACTIONS:
+1. Add alerting for sudden hour-level success-rate drops.
+2. Investigate the affected account and device metadata for abuse or credential issues.
+3. Review login throttling, MFA prompts, and geo/device reputation controls.
+4. Add an external incident feed if future investigations need public-service correlation.
+
+VALIDATION:
+No external status feed or incident log exists in the workspace, so the external-outage hypothesis cannot be confirmed. The available evidence instead supports an internal or account-specific issue localized to the affected username, country, and device type.
