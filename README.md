@@ -96,6 +96,11 @@ SW2627-DataProduct-CyberGuard/
 │   ├── time_series_analysis.ipynb     # Chronological revenue and order trends
 │   └── user_segmentation_analysis.ipynb# User clustering and behavioral segmentation
 │
+├── queries/                           # Canonical SQL metric files -- one truth for all teams
+│   ├── monthly_active_users.sql       # MAU metric: distinct customers with FILTER segment breakdown
+│   ├── revenue_by_segment.sql         # Monthly revenue + order metrics joined by customer type
+│   └── conversion_funnel.sql          # Daily signup → email verify → first purchase funnel
+│
 ├── scripts/                           # Production scripts and pipeline orchestrators
 │   ├── anomaly_detection.py           # Z-score-based daily telemetry anomaly finder
 │   ├── correlation_analysis.py        # Heatmap correlation builder and feature selector
@@ -115,6 +120,7 @@ SW2627-DataProduct-CyberGuard/
 │   ├── root_cause_investigation.py    # Threat incident root-cause analyzer
 │   ├── segment_analysis.py            # Customer cohort aggregator and heatmap builder
 │   ├── segment_groupby_analysis.py    # Reshaping and reshaping of segmentation tables
+│   ├── sql_business_metrics.py        # SQL Business Metrics runner (Assignment 2.38)
 │   ├── string_cleaning_pipeline.py    # Whitespace trim and text cleaning pipeline
 │   └── validate_intake.py             # Schema structural integrity validator
 │
@@ -193,6 +199,25 @@ Validation checks are configured in `kpis/kpi_validation_targets.json`. More det
 
 ---
 
+## 📐 SQL Business Metrics (Assignment 2.38)
+
+The `queries/` directory stores **canonical SQL metric definitions** — written once, reused by every team.  
+No more five people computing "Monthly Revenue" five different ways.
+
+| File | Purpose |
+|------|---------|
+| `queries/monthly_active_users.sql` | Distinct customers per month + Enterprise/SMB/Startup breakdown via `FILTER` |
+| `queries/revenue_by_segment.sql`   | Monthly revenue, order count, avg order value, revenue-per-customer by segment |
+| `queries/conversion_funnel.sql`    | Daily signup → email verify → first purchase funnel with `conversion_pct` |
+
+**Runner & Validator**: `scripts/sql_business_metrics.py` seeds synthetic business-metric tables (`transactions`, `customers`, `users`), executes the queries via `pd.read_sql()`, and runs a full validation suite checking for nulls, value ranges, segment coverage, and funnel consistency.
+
+```bash
+python scripts/sql_business_metrics.py
+```
+
+---
+
 ## 🛠️ Execution Guide (CLI Checklist)
 
 Run these commands from the project root directory to execute the analytical modules:
@@ -231,7 +256,10 @@ python scripts/anomaly_detection.py
 # 11. Run root-cause diagnostics on auth logs
 python scripts/root_cause_investigation.py
 
-# 12. Run the interactive Streamlit SOC dashboard
+# 12. Run SQL business metrics (Assignment 2.38)
+python scripts/sql_business_metrics.py
+
+# 13. Run the interactive Streamlit SOC dashboard
 streamlit run scripts/dashboard.py
 ```
 
