@@ -115,6 +115,7 @@ SW2627-DataProduct-CyberGuard/
 │   ├── root_cause_investigation.py    # Threat incident root-cause analyzer
 │   ├── segment_analysis.py            # Customer cohort aggregator and heatmap builder
 │   ├── segment_groupby_analysis.py    # Reshaping and reshaping of segmentation tables
+│   ├── sql_filtering_aggregation.py   # WHERE/HAVING/GROUP BY/ORDER BY runner (Assignment 2.39)
 │   ├── string_cleaning_pipeline.py    # Whitespace trim and text cleaning pipeline
 │   └── validate_intake.py             # Schema structural integrity validator
 │
@@ -193,6 +194,28 @@ Validation checks are configured in `kpis/kpi_validation_targets.json`. More det
 
 ---
 
+## 🔍 SQL Filtering, Grouping & Aggregation (Assignment 2.39)
+
+"Show Enterprise customers with >$10k annual spending" -- do you filter before or after grouping?
+This module answers definitively with 5 canonical query patterns:
+
+| Clause | Role | File |
+|--------|------|------|
+| `WHERE` | Filters **rows** before grouping (data quality, date range) | `queries/where_filtering.sql` |
+| `GROUP BY` | Changes unit of analysis to groups, enables aggregates | `queries/groupby_aggregation.sql` |
+| `HAVING` | Filters **groups** after aggregation (metric thresholds) | `queries/having_filtering.sql` |
+| `WHERE + HAVING` | Both together for real-world operational reports | `queries/where_having_combined.sql` |
+| `ORDER BY + RANK()` | Sorts and ranks top performers | `queries/orderby_ranking.sql` |
+
+> **Key rule**: Use `WHERE` for column-level data guards. Use `HAVING` for aggregate-level business thresholds.  
+> `WHERE` runs before `GROUP BY` (cheaper). `HAVING` runs after (can see SUM/COUNT results).
+
+```bash
+python scripts/sql_filtering_aggregation.py
+```
+
+---
+
 ## 🛠️ Execution Guide (CLI Checklist)
 
 Run these commands from the project root directory to execute the analytical modules:
@@ -231,7 +254,10 @@ python scripts/anomaly_detection.py
 # 11. Run root-cause diagnostics on auth logs
 python scripts/root_cause_investigation.py
 
-# 12. Run the interactive Streamlit SOC dashboard
+# 12. Run SQL filtering and aggregation queries (Assignment 2.39)
+python scripts/sql_filtering_aggregation.py
+
+# 13. Run the interactive Streamlit SOC dashboard
 streamlit run scripts/dashboard.py
 ```
 
