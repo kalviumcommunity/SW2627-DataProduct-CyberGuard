@@ -98,7 +98,7 @@ class SOCReportGenerator:
         story = []
 
         # 1. Header & Title
-        story.append(Paragraph("🛡️ CyberGuard SOC Security Threat Briefing", title_style))
+        story.append(Paragraph("CyberGuard SOC Security Threat Briefing", title_style))
         story.append(Paragraph("Automated Enterprise Executive & Technical Incident Summary Report", subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#0284c7"), spaceAfter=15))
 
@@ -130,7 +130,7 @@ class SOCReportGenerator:
         story.append(Spacer(1, 15))
 
         # 3. Top High Risk Threats Table
-        story.append(Paragraph("🚨 High-Priority Threat Incidents (Top 10)", h2_style))
+        story.append(Paragraph("High-Priority Threat Incidents (Top 10)", h2_style))
         high_df = df[df["risk_score"] >= 70].sort_values(by="risk_score", ascending=False).head(10)
         
         if not high_df.empty:
@@ -162,7 +162,7 @@ class SOCReportGenerator:
         story.append(Spacer(1, 15))
 
         # 4. Strategic Recommendations
-        story.append(Paragraph("🛡️ Recommended Strategic Remediation Actions", h2_style))
+        story.append(Paragraph("Recommended Strategic Remediation Actions", h2_style))
         recs = [
             "1. **Enforce Mandatory Step-Up MFA**: Enable hardware key / TOTP MFA for high-risk users.",
             "2. **Perimeter Firewall IP Blocking**: Automatically block external IPs generating credential stuffing activity.",

@@ -4,9 +4,10 @@ Real-Time Incident & Threat Event Explorer View
 import streamlit as st
 import pandas as pd
 from cyberguard.reporting.report_generator import SOCReportGenerator
+from cyberguard.dashboard.components import render_section_title
 
 def render_incidents_view(df: pd.DataFrame):
-    st.subheader("🚨 Incident Explorer & Threat Event Log")
+    render_section_title("Incident Explorer & Threat Event Log", "incidents")
     
     # Filters Bar
     f1, f2, f3, f4 = st.columns(4)
@@ -35,7 +36,7 @@ def render_incidents_view(df: pd.DataFrame):
     filtered = filtered[filtered["risk_score"] >= min_risk]
 
     # Search Bar
-    search_query = st.text_input("🔍 Search Events (by IP, Username, Country, or Reason)", "")
+    search_query = st.text_input("Search Events (by IP, Username, Country, or Reason)", "")
     if search_query:
         mask = (
             filtered["username"].str.contains(search_query, case=False, na=False) |
@@ -62,13 +63,13 @@ def render_incidents_view(df: pd.DataFrame):
     )
 
     # Export Buttons
-    st.markdown("### 📥 Export & Download SOC Reports")
+    render_section_title("Export & Download SOC Reports", "export")
     e1, e2 = st.columns(2)
     
     reporter = SOCReportGenerator()
     
     with e1:
-        if st.button("📄 Export Filtered Dataset to CSV"):
+        if st.button("Export Filtered Dataset to CSV"):
             csv_path = reporter.export_csv(filtered)
             with open(csv_path, "rb") as file:
                 st.download_button(
@@ -79,7 +80,7 @@ def render_incidents_view(df: pd.DataFrame):
                 )
                 
     with e2:
-        if st.button("📊 Generate Executive PDF Report"):
+        if st.button("Generate Executive PDF Report"):
             pdf_path = reporter.generate_pdf_report(filtered)
             with open(pdf_path, "rb") as file:
                 st.download_button(
@@ -88,3 +89,4 @@ def render_incidents_view(df: pd.DataFrame):
                     file_name="cyberguard_executive_incident_briefing.pdf",
                     mime="application/pdf"
                 )
+

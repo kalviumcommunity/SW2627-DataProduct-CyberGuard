@@ -1,16 +1,19 @@
 column_name,data_type,description,business_meaning,example_value,related_kpi,notes
-customer_id,integer,Unique identifier for customer,Customer ID in CRM system,12456,Customer tracking,Primary key - never null
-trnx_amt,float,Transaction amount in USD,Revenue per transaction,150.99,Monthly revenue,Amount paid by customer in dollars
-purchase_date,datetime,Date transaction occurred,When sale was completed,2025-01-15,Sales velocity,UTC timezone - never null
-cust_segment,string,Customer classification,Business segment (B2B/B2C/SMB),B2B,Segment profitability,Updated monthly from CRM
-flag_churn,integer,Churn indicator (0/1),Whether customer left within 90 days,0,Churn rate prediction,Target variable for retention models
-segment,string,Ambiguous segment label,Customer market segment used for go-to-market strategy,SMB,Segment revenue,Use market_segment if schema is refactored
-customer_name,string,Customer display name,Human-readable customer reference,Alice Smith,Customer segmentation analysis,May contain capitalization differences from CRM
-email,string,Customer email address,Contact and identity field,alice@example.com,Customer communication,Validate format and deduplicate carefully
-timestamp,datetime,Timestamp of login attempt,Authentication timestamp in UTC,2026-07-01 13:39:45,Login velocity,Primary key component - never null
-username,string,Identifier of authenticating user,Security user identity,user_16,User login frequency,Used for tracking individual behavior
-ip_address,string,IPv4 address of login origin,Connection IP source,21.73.167.18,Brute force count,Used for geolocation and threat analysis
-country,string,Two-letter location code,Geographic origin country,AU,Geographic risk,Derived from IP address geolocation
-status,string,Login outcome,Authentication status,Success,Failed login rate,Valid values are Success or Failed
-device_type,string,Operating system/device descriptor,Connection device type,Mobile-Android,Device profile anomaly,Identifies client browser/OS structure
-risk_score,float,Calculated security risk score,Behavioral risk score (0-100),10.0,High-risk event rate,Computed using threat heuristics
+event_id,integer,Unique authentication event identifier,Primary key for auth_events fact table,1042,Incident tracking,Auto-increment integer
+timestamp,datetime,Timestamp of login attempt,Authentication timestamp in UTC,2026-07-01 13:39:45,Login velocity,ISO-8601 format - coerced during ETL
+username,string,Identifier of authenticating user,Security user account identity,user_16,User failure rate,Imputed to unknown_user if missing
+ip_address,string,IPv4 address of login origin,Connection IP source,185.220.101.5,IP failure velocity,Validated with IPv4 regex
+country,string,Two-letter location code,Geographic origin country,IN,Geographic risk,Derived from IP geolocation lookup
+city,string,City name of connection origin,Geographic city location,Tokyo,Location profiling,Derived from IP geolocation
+latitude,float,Geographic latitude coordinate,Physical location coordinate,37.7749,Haversine speed,Bounded between -90 and +90
+longitude,float,Geographic longitude coordinate,Physical location coordinate,-122.4194,Haversine speed,Bounded between -180 and +180
+status,string,Login outcome,Authentication status (Success/Failed),Failed,Failed login rate,Valid values are Success or Failed
+device_type,string,Operating system/device descriptor,Connection device type,Laptop-macOS,Device profiling,Standardized device categories
+user_agent,string,Browser user agent header string,Client client browser details,Mozilla/5.0,Bot detection,Extracted from connection header
+threat_vector,string,Tagged heuristic threat category,Specific attack vector,Impossible Travel,Threat classification,Assigned by ThreatRuleEngine
+anomaly_score,float,ML behavioral anomaly score,Outlier probability (0.0 to 1.0),0.854,Unsupervised anomaly rate,Computed by Isolation Forest
+risk_score,float,Composite security risk score,Unified event risk rating (0-100),85.0,High risk incident count,Synthesizes rules and ML scores
+severity,string,Categorical threat severity level,Alert priority classification,CRITICAL,SOC alert SLA,CRITICAL HIGH MEDIUM LOW INFO
+confidence,float,Statistical confidence rating,Alert certainty score (0.50 to 0.99),0.96,Alert precision,Derived from factor count
+primary_reason,string,Leading alert trigger rationale,Forensic explanation of risk,Geographical speed anomaly,SOC alert triage,Plain language text string
+recommended_action,string,Automated playbook response,SOC analyst remediation guide,Isolate endpoint,Incident Response SLA,Mapped by RiskEngine

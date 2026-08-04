@@ -5,9 +5,10 @@ import streamlit as st
 import pandas as pd
 from cyberguard.sql.db_manager import DatabaseManager
 from cyberguard.sql.queries import WINDOW_VELOCITY_QUERY, BRUTE_FORCE_SQL, USER_RISK_RANKING_SQL
+from cyberguard.dashboard.components import render_section_title
 
 def render_sql_view():
-    st.subheader("💾 SQL Analytical Studio & Database Views")
+    render_section_title("SQL Analytical Studio & Database Views", "sql")
     
     db_mgr = DatabaseManager()
     
@@ -42,10 +43,11 @@ def render_sql_view():
 
     sql_input = st.text_area("SQL Query Input", value=default_query, height=180)
     
-    if st.button("▶️ Execute SQL Query"):
+    if st.button("Execute SQL Query"):
         try:
             res_df = db_mgr.execute_query(sql_input)
             st.success(f"Query returned {len(res_df):,} rows.")
             st.dataframe(res_df, use_container_width=True)
         except Exception as e:
             st.error(f"SQL Execution Error: {str(e)}")
+

@@ -33,7 +33,7 @@ class AIInsightEngine:
             top_brute_ip = brute_events["ip_address"].mode()[0]
             count = len(brute_events)
             insights.append(
-                f"🚨 **Brute Force Burst Detected**: User `{top_brute_user}` experienced {count} rapid failed logins "
+                f"**Brute Force Burst Detected**: User `{top_brute_user}` experienced {count} rapid failed logins "
                 f"originating from suspicious IP address `{top_brute_ip}`."
             )
 
@@ -46,7 +46,7 @@ class AIInsightEngine:
                 curr_country = row.get("country", "Unknown")
                 speed = row.get("geo_speed_kmh", 0)
                 insights.append(
-                    f"✈️ **Impossible Travel Velocity Anomaly**: Account `{user}` authenticated from `{prev_country}` "
+                    f"**Impossible Travel Velocity Anomaly**: Account `{user}` authenticated from `{prev_country}` "
                     f"and then `{curr_country}` within a short window, travelling at an impossible velocity of **{speed:.0f} km/h**."
                 )
 
@@ -56,7 +56,7 @@ class AIInsightEngine:
             ip = stuff_events["ip_address"].mode()[0]
             user_count = stuff_events["ip_distinct_users_10m"].max()
             insights.append(
-                f"🔓 **Credential Stuffing Vector**: Malicious source IP `{ip}` targeted **{user_count} distinct user accounts** "
+                f"**Credential Stuffing Vector**: Malicious source IP `{ip}` targeted **{user_count} distinct user accounts** "
                 f"in a automated credential spray attempt."
             )
 
@@ -65,15 +65,15 @@ class AIInsightEngine:
         if not priv_events.empty:
             targets = ", ".join(priv_events["username"].unique())
             insights.append(
-                f"⚡ **Privilege Escalation Activity**: Flagged repeated unauthorized authentication attempts targeting "
+                f"**Privilege Escalation Activity**: Flagged repeated unauthorized authentication attempts targeting "
                 f"administrative accounts (`{targets}`)."
             )
 
         # 6. Overall Security Posture Verdict
         if len(high_risk_df) > 10:
-            insights.append("⚠️ **Security Posture Verdict**: HIGH RISK ENVIRONMENT. Elevated automated attack activity observed. Immediate threat mitigation recommended.")
+            insights.append("**Security Posture Verdict**: HIGH RISK ENVIRONMENT. Elevated automated attack activity observed. Immediate threat mitigation recommended.")
         else:
-            insights.append("✅ **Security Posture Verdict**: NORMAL OPERATIONAL BASELINE. Low anomaly frequency detected.")
+            insights.append("**Security Posture Verdict**: NORMAL OPERATIONAL BASELINE. Low anomaly frequency detected.")
 
         return insights
 

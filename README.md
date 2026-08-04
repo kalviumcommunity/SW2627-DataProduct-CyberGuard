@@ -155,8 +155,10 @@ Evaluating CyberGuard across 15 engineering categories against FAANG standards:
 ## 📚 Documentation Links
 
 - 📋 [Product Requirements Document (PRD)](PRD.md)
+- 🏗️ [High-Level Design (HLD)](HLD.md)
+- ⚙️ [Low-Level Design (LLD)](LLD.md)
 - 🎨 [Design System & UI Tokens](DESIGN_SYSTEM.md)
-- 🏗️ [Architecture & System Design](docs/ARCHITECTURE.md)
+- 🏛️ [Architecture & System Design](docs/ARCHITECTURE.md)
 - 📖 [Package API Reference](docs/API_REFERENCE.md)
 - 📊 [Full Audit Scorecard Report](reports/audit_report.md)
 

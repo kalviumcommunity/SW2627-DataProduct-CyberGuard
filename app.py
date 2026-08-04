@@ -8,7 +8,7 @@ from pathlib import Path
 # Page Config
 st.set_page_config(
     page_title="CyberGuard SOC Threat Intel & Analytics",
-    page_icon="🛡️",
+    page_icon="https://img.icons8.com/nolan/96/shield.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -20,7 +20,7 @@ from cyberguard.models.anomaly_engine import AnomalyEngine
 from cyberguard.risk.risk_engine import RiskEngine
 from cyberguard.sql.db_manager import DatabaseManager
 
-from cyberguard.dashboard.components import apply_soc_theme, render_header
+from cyberguard.dashboard.components import apply_soc_theme, render_header, APP_LOGO_SVG, get_svg_icon
 from cyberguard.dashboard.views_overview import render_overview_view
 from cyberguard.dashboard.views_incidents import render_incidents_view
 from cyberguard.dashboard.views_anomalies import render_anomalies_view
@@ -64,24 +64,23 @@ def main():
         df = load_and_process_pipeline_data()
 
     # Sidebar Navigation
-    st.sidebar.image("https://img.icons8.com/nolan/96/shield.png", width=70)
-    st.sidebar.title("🛡️ CyberGuard SOC")
+    st.sidebar.markdown(f'<div style="display:flex; align-items:center; gap:10px; font-size:1.4rem; font-weight:700; margin-bottom:12px;">{APP_LOGO_SVG} CyberGuard SOC</div>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
     
     navigation_option = st.sidebar.radio(
         "Navigation Menu",
         [
-            "🎯 SOC Executive Overview",
-            "🚨 Real-Time Incident Explorer",
-            "🤖 ML Anomaly & Benchmark",
-            "🌍 Geo & Impossible Travel",
-            "👤 User & Device Profiler",
-            "💾 SQL Analytical Studio"
+            "SOC Executive Overview",
+            "Real-Time Incident Explorer",
+            "ML Anomaly & Benchmark",
+            "Geo & Impossible Travel",
+            "User & Device Profiler",
+            "SQL Analytical Studio"
         ]
     )
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📊 Dataset Quick Stats")
+    st.sidebar.markdown(f'<div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:1.05rem; margin-bottom:10px;">{get_svg_icon("stats", 18)} Dataset Quick Stats</div>', unsafe_allow_html=True)
     st.sidebar.info(
         f"**Total Events**: {len(df):,}\n\n"
         f"**High Risk Alerts**: {len(df[df['risk_score']>=70]):,}\n\n"
@@ -89,18 +88,19 @@ def main():
     )
 
     # Render Active Navigation View
-    if navigation_option == "🎯 SOC Executive Overview":
+    if navigation_option == "SOC Executive Overview":
         render_overview_view(df)
-    elif navigation_option == "🚨 Real-Time Incident Explorer":
+    elif navigation_option == "Real-Time Incident Explorer":
         render_incidents_view(df)
-    elif navigation_option == "🤖 ML Anomaly & Benchmark":
+    elif navigation_option == "ML Anomaly & Benchmark":
         render_anomalies_view(df)
-    elif navigation_option == "🌍 Geo & Impossible Travel":
+    elif navigation_option == "Geo & Impossible Travel":
         render_geo_view(df)
-    elif navigation_option == "👤 User & Device Profiler":
+    elif navigation_option == "User & Device Profiler":
         render_profiles_view(df)
-    elif navigation_option == "💾 SQL Analytical Studio":
+    elif navigation_option == "SQL Analytical Studio":
         render_sql_view()
 
 if __name__ == "__main__":
     main()
+

@@ -6,9 +6,10 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from cyberguard.ai.insight_engine import AIInsightEngine
+from cyberguard.dashboard.components import render_section_title
 
 def render_overview_view(df: pd.DataFrame):
-    st.subheader("🎯 SOC Executive Overview & Threat Intelligence")
+    render_section_title("SOC Executive Overview & Threat Intelligence", "overview")
     
     # 1. Top KPI Row
     total_events = len(df)
@@ -26,7 +27,7 @@ def render_overview_view(df: pd.DataFrame):
     st.markdown("---")
     
     # 2. AI Security Insights Narrative Card
-    st.markdown("### 🤖 AI Threat Insights & Executive Briefing")
+    render_section_title("AI Threat Insights & Executive Briefing", "anomalies")
     insights = AIInsightEngine.generate_narrative_insights(df)
     with st.container():
         st.info("\n\n".join([f"• {insight}" for insight in insights]))
@@ -37,7 +38,7 @@ def render_overview_view(df: pd.DataFrame):
     col_left, col_right = st.columns(2)
     
     with col_left:
-        st.markdown("#### 📈 Authentication Velocity & Threat Timeline")
+        render_section_title("Authentication Velocity & Threat Timeline", "chart_line")
         df_time = df.set_index("timestamp").resample("1h")["status"].value_counts().unstack().fillna(0)
         
         fig_time = px.line(
@@ -46,11 +47,11 @@ def render_overview_view(df: pd.DataFrame):
             labels={"value": "Login Volume", "timestamp": "Timestamp"},
             color_discrete_map={"Success": "#10b981", "Failed": "#ef4444"}
         )
-        fig_time.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        fig_time.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_time, use_container_width=True)
 
     with col_right:
-        st.markdown("#### 🎯 Threat Vector & Risk Severity Distribution")
+        render_section_title("Threat Vector & Risk Severity Distribution", "chart_pie")
         fig_pie = px.pie(
             df,
             names="severity",
@@ -65,13 +66,13 @@ def render_overview_view(df: pd.DataFrame):
             },
             hole=0.4
         )
-        fig_pie.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_pie, use_container_width=True)
 
     # 4. Top Risky Users & Devices Table
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### 👤 Top 5 Risky User Accounts")
+        render_section_title("Top 5 Risky User Accounts", "users")
         risky_users = df.groupby("username").agg(
             total_logins=("status", "count"),
             failures=("is_failed", "sum"),
@@ -81,10 +82,11 @@ def render_overview_view(df: pd.DataFrame):
         st.dataframe(risky_users, use_container_width=True)
         
     with c2:
-        st.markdown("#### 💻 Top Risky Origin Devices")
+        render_section_title("Top Risky Origin Devices", "device")
         risky_devices = df.groupby("device_type").agg(
             total_attempts=("status", "count"),
             failures=("is_failed", "sum"),
             max_risk=("risk_score", "max")
         ).sort_values(by="max_risk", ascending=False).reset_index()
         st.dataframe(risky_devices, use_container_width=True)
+

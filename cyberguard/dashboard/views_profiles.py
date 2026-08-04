@@ -4,19 +4,20 @@ User & Device Behavioral Deep-Dive Profiling View
 import streamlit as st
 import pandas as pd
 from cyberguard.analytics.profiler import BehavioralProfiler
+from cyberguard.dashboard.components import render_section_title
 
 def render_profiles_view(df: pd.DataFrame):
-    st.subheader("👤 User & Device Behavioral Deep-Dive Profiler")
+    render_section_title("User & Device Behavioral Deep-Dive Profiler", "profiles")
     
-    tab_user, tab_device = st.tabs(["👤 User Behavioral Profiles", "💻 Device Type Profiles"])
+    tab_user, tab_device = st.tabs(["User Behavioral Profiles", "Device Type Profiles"])
     
     with tab_user:
         user_profiles = BehavioralProfiler.build_user_profiles(df)
-        st.markdown("#### User Baseline Profiles & Failure Rates")
+        render_section_title("User Baseline Profiles & Failure Rates", "users")
         st.dataframe(user_profiles.sort_values(by="failure_rate_pct", ascending=False), use_container_width=True)
         
         st.markdown("---")
-        st.markdown("#### 🔎 Select User Account to Deep-Dive")
+        render_section_title("Select User Account to Deep-Dive", "search")
         selected_user = st.selectbox("Choose User", sorted(df["username"].unique().tolist()))
         
         user_events = df[df["username"] == selected_user].sort_values(by="timestamp", ascending=False)
@@ -32,5 +33,6 @@ def render_profiles_view(df: pd.DataFrame):
 
     with tab_device:
         device_profiles = BehavioralProfiler.build_device_profiles(df)
-        st.markdown("#### Device Type Security Profiles")
+        render_section_title("Device Type Security Profiles", "device")
         st.dataframe(device_profiles, use_container_width=True)
+
