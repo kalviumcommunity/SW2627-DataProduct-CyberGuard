@@ -1,6 +1,12 @@
 """
 CyberGuard ETL Pipeline Entrypoint Script
 """
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from cyberguard.etl.pipeline import ETLPipeline
 from cyberguard.analytics.threat_rules import ThreatRuleEngine
 from cyberguard.models.anomaly_engine import AnomalyEngine
